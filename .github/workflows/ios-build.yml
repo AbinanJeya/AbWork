@@ -9,6 +9,7 @@ env:
 jobs:
   build_ios:
     runs-on: macos-latest
+    timeout-minutes: 60
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -21,30 +22,32 @@ jobs:
       - name: Install project dependencies
         run: npm install
 
-      - name: Install Expo and EAS CLI
-        run: npm install -g expo-cli eas-cli @expo/cli
-
-      - name: Verify Expo Token
-        env:
-          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
-        run: |
-          if [ -z "$EXPO_TOKEN" ]; then
-            echo "ERROR: EXPO_TOKEN secret is not set!"
-            echo "Go to repo Settings > Secrets > Actions and add EXPO_TOKEN"
-            exit 1
-          fi
-          echo "EXPO_TOKEN is configured"
-
-      - name: Prebuild iOS native project
-        run: npx expo prebuild --platform ios --no-install
+      - name: Generate iOS native project
+        run: npx expo prebuild --platform ios --no-install --clean
 
       - name: Install CocoaPods
         run: cd ios && pod install
 
-      - name: Build iOS IPA Locally
-        env:
-          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
-        run: eas build --platform ios --profile preview --local --output build.ipa --non-interactive
+      - name: Build unsigned IPA with xcodebuild
+        run: |
+          # Build the .app without code signing (AltStore will re-sign it)
+          xcodebuild \
+            -workspace ios/FitAI.xcworkspace \
+            -scheme FitAI \
+            -configuration Release \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            -archivePath build/FitAI.xcarchive \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            archive
+
+      - name: Package .app into .ipa
+        run: |
+          mkdir -p build/Payload
+          cp -r build/FitAI.xcarchive/Products/Applications/FitAI.app build/Payload/
+          cd build && zip -r ../build.ipa Payload
 
       - name: Upload IPA Artifact
         uses: actions/upload-artifact@v4
