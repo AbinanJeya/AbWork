@@ -32,12 +32,12 @@ jobs:
         run: |
           # Build the .app without code signing (AltStore will re-sign it)
           xcodebuild \
-            -workspace ios/FitAI.xcworkspace \
-            -scheme FitAI \
+            -workspace ios/AbWork.xcworkspace \
+            -scheme AbWork \
             -configuration Release \
             -sdk iphoneos \
             -destination 'generic/platform=iOS' \
-            -archivePath build/FitAI.xcarchive \
+            -archivePath build/AbWork.xcarchive \
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGN_IDENTITY="" \
@@ -46,7 +46,7 @@ jobs:
       - name: Package .app into .ipa
         run: |
           mkdir -p build/Payload
-          cp -r build/FitAI.xcarchive/Products/Applications/FitAI.app build/Payload/
+          cp -r build/AbWork.xcarchive/Products/Applications/AbWork.app build/Payload/
           cd build && zip -r ../build.ipa Payload
 
       - name: Upload IPA Artifact
