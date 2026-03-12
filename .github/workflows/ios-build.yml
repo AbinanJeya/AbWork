@@ -18,21 +18,32 @@ jobs:
         with:
           node-version: 18.x
 
-      - name: Install dependencies
+      - name: Install project dependencies
         run: npm install
 
-      - name: Install EAS CLI
-        run: npm install -g eas-cli
+      - name: Install Expo and EAS CLI
+        run: npm install -g expo-cli eas-cli @expo/cli
 
-      - name: Setup Expo
-        run: npx expo login --token ${{ secrets.EXPO_TOKEN }}
+      - name: Verify Expo Token
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: |
+          if [ -z "$EXPO_TOKEN" ]; then
+            echo "ERROR: EXPO_TOKEN secret is not set!"
+            echo "Go to repo Settings > Secrets > Actions and add EXPO_TOKEN"
+            exit 1
+          fi
+          echo "EXPO_TOKEN is configured"
+
+      - name: Prebuild iOS native project
+        run: npx expo prebuild --platform ios --no-install
 
       - name: Install CocoaPods
-        run: |
-          cd ios 2>/dev/null || npx expo prebuild --platform ios --no-install
-          cd ios && pod install
+        run: cd ios && pod install
 
       - name: Build iOS IPA Locally
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
         run: eas build --platform ios --profile preview --local --output build.ipa --non-interactive
 
       - name: Upload IPA Artifact
