@@ -22,8 +22,35 @@ jobs:
       - name: Install project dependencies
         run: npm install
 
+      - name: Patch expo-file-system nullability for Xcode 16+
+        run: |
+          # Fix missing nullability specifiers that are hard errors in Xcode 16.4
+          HEADER="node_modules/expo-file-system/ios/Legacy/EXSessionTasks/EXSessionTaskDelegate.h"
+          if [ -f "$HEADER" ]; then
+            sed -i '' '/#import <Foundation\/Foundation.h>/a\
+          \
+          NS_ASSUME_NONNULL_BEGIN' "$HEADER"
+            sed -i '' 's/@end/@end\
+          NS_ASSUME_NONNULL_END/' "$HEADER"
+            # Make error parameter nullable (it can be nil on success)
+            sed -i '' 's/didCompleteWithError:(NSError \*)/didCompleteWithError:(nullable NSError *)/' "$HEADER"
+            echo "✅ Patched $HEADER with nullability specifiers"
+          else
+            echo "⚠️ Header not found, skipping patch"
+          fi
+
       - name: Generate iOS native project
         run: npx expo prebuild --platform ios --no-install --clean
+
+      - name: Suppress pod warnings for Xcode 16+ compatibility
+        run: |
+          # Add inhibit_all_warnings! to the Podfile to suppress all pod warnings
+          cd ios
+          if ! grep -q 'inhibit_all_warnings!' Podfile; then
+            sed -i '' '/^platform/a\
+          inhibit_all_warnings!' Podfile
+            echo "✅ Added inhibit_all_warnings! to Podfile"
+          fi
 
       - name: Install CocoaPods
         run: cd ios && pod install
@@ -43,6 +70,7 @@ jobs:
             CODE_SIGN_IDENTITY="" \
             GCC_TREAT_WARNINGS_AS_ERRORS=NO \
             SWIFT_TREAT_WARNINGS_AS_ERRORS=NO \
+            OTHER_CFLAGS='$(inherited) -Wno-nullability-completeness -Wno-nonnull' \
             archive
 
       - name: Package .app into .ipa
