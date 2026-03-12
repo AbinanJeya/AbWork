@@ -1,0 +1,41 @@
+name: Build iOS IPA
+
+on:
+  workflow_dispatch: # Allows manual triggering from the GitHub Actions UI
+
+jobs:
+  build_ios:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Setup Node
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18.x
+          cache: npm
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Setup Expo
+        uses: expo/expo-github-action@v8
+        with:
+          expo-version: latest
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }} 
+
+      - name: Install CocoaPods
+        run: npx pod-install
+
+      - name: Build iOS IPA Locally
+        # using the local flag forces EAS to compile on the macOS runner instead of Expo's cloud servers
+        # this bypasses the Apple developer account check that EAS cloud enforces
+        run: eas build --platform ios --profile preview --local --output build.ipa
+
+      - name: Upload IPA Artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: FitAI-iOS-Build
+          path: build.ipa
