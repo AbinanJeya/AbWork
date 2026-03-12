@@ -1,7 +1,10 @@
 name: Build iOS IPA
 
 on:
-  workflow_dispatch: # Allows manual triggering from the GitHub Actions UI
+  workflow_dispatch:
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
   build_ios:
@@ -14,25 +17,23 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 18.x
-          cache: npm
 
       - name: Install dependencies
         run: npm install
 
+      - name: Install EAS CLI
+        run: npm install -g eas-cli
+
       - name: Setup Expo
-        uses: expo/expo-github-action@v8
-        with:
-          expo-version: latest
-          eas-version: latest
-          token: ${{ secrets.EXPO_TOKEN }} 
+        run: npx expo login --token ${{ secrets.EXPO_TOKEN }}
 
       - name: Install CocoaPods
-        run: npx pod-install
+        run: |
+          cd ios 2>/dev/null || npx expo prebuild --platform ios --no-install
+          cd ios && pod install
 
       - name: Build iOS IPA Locally
-        # using the local flag forces EAS to compile on the macOS runner instead of Expo's cloud servers
-        # this bypasses the Apple developer account check that EAS cloud enforces
-        run: eas build --platform ios --profile preview --local --output build.ipa
+        run: eas build --platform ios --profile preview --local --output build.ipa --non-interactive
 
       - name: Upload IPA Artifact
         uses: actions/upload-artifact@v4
